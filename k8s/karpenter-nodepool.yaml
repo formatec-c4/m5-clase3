@@ -1,0 +1,32 @@
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: frutas-gpu
+spec:
+  limits:
+    nodes: 1
+  disruption:
+    consolidationPolicy: WhenEmpty
+    consolidateAfter: 1m
+  template:
+    metadata:
+      labels:
+        workload.formatec/type: gpu-training
+    spec:
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: frutas-training
+      requirements:
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: [spot]
+        - key: karpenter.k8s.aws/instance-family
+          operator: In
+          values: [g4dn, g5, g6, g6e]
+        - key: karpenter.k8s.aws/instance-size
+          operator: In
+          values: [xlarge]
+        - key: kubernetes.io/arch
+          operator: In
+          values: [amd64]

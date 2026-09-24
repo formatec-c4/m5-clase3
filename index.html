@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Laboratorio de frutas · modelo GPU Spot</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; }
+    body { margin: 0; background: #101817; color: #e9f5ee; }
+    main { width: min(980px, calc(100% - 32px)); margin: 48px auto; }
+    .eyebrow { color: #a9e6ae; letter-spacing: .12em; text-transform: uppercase; font-size: .8rem; }
+    h1 { font-size: clamp(2rem, 5vw, 3.6rem); line-height: 1.05; max-width: 780px; margin: 16px 0; }
+    p { color: #c2d4cb; line-height: 1.6; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 28px; }
+    .card { background: #1b2824; border: 1px solid #365149; border-radius: 22px; padding: 24px; }
+    input { width: 100%; max-width: 100%; }
+    button { border: 0; border-radius: 12px; background: #a9e6ae; color: #112018; font: inherit; font-weight: 700; padding: 12px 20px; margin-top: 16px; cursor: pointer; }
+    button:disabled { opacity: .55; cursor: wait; }
+    img { width: 100%; max-height: 320px; object-fit: contain; margin-top: 18px; border-radius: 12px; background: #111c18; }
+    ol { padding-left: 22px; }
+    li { margin: 12px 0; }
+    .score { color: #a9e6ae; float: right; }
+    .notice { background: #29342d; border-left: 4px solid #e6cc75; padding: 14px 16px; border-radius: 8px; }
+    @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">Clase 3 · Módulo 5 · laboratorio en GPU Spot</div>
+  <h1>¿Qué fruta hay en tu foto?</h1>
+  <p>Este modelo se entrenó con decenas de miles de imágenes de 56 frutas, provenientes de 179 variedades. Subí una foto nueva para poner a prueba lo que aprendió.</p>
+  <div class="grid">
+    <section class="card">
+      <h2>Tu foto</h2>
+      <input id="photo" type="file" accept="image/jpeg,image/png,image/webp">
+      <img id="preview" alt="Vista previa de la fruta" hidden>
+      <button id="predict" disabled>Reconocer fruta</button>
+    </section>
+    <section class="card">
+      <h2>Resultado</h2>
+      <p id="state">Elegí una imagen para empezar.</p>
+      <ol id="ranking"></ol>
+      <p id="validation" class="notice">Cargando evaluación del modelo…</p>
+      <p id="compute" class="notice">Cargando consumo del entrenamiento…</p>
+    </section>
+  </div>
+  <p>Los porcentajes son puntajes relativos entre las clases conocidas, no una garantía. El modelo no determina madurez y puede fallar con varias frutas, especies desconocidas o fotos muy diferentes a las de entrenamiento. La imagen se procesa en tu computadora y no se guarda.</p>
+</main>
+<script>
+  const input = document.getElementById('photo');
+  const button = document.getElementById('predict');
+  const preview = document.getElementById('preview');
+  const state = document.getElementById('state');
+  const ranking = document.getElementById('ranking');
+  input.addEventListener('change', () => {
+    const file = input.files[0];
+    button.disabled = !file;
+    ranking.replaceChildren();
+    state.textContent = file ? 'Lista para analizar.' : 'Elegí una imagen para empezar.';
+    if (file) { preview.src = URL.createObjectURL(file); preview.hidden = false; }
+    else { preview.hidden = true; }
+  });
+  button.addEventListener('click', async () => {
+    const file = input.files[0];
+    if (!file) return;
+    button.disabled = true;
+    state.textContent = 'Analizando la foto…';
+    try {
+      const response = await fetch('/api/predict', { method: 'POST', body: file });
+      if (!response.ok) throw new Error('No pude leer esa imagen. Probá JPG, PNG o WebP.');
+      const data = await response.json();
+      ranking.replaceChildren(...data.top5.map(row => {
+        const li = document.createElement('li');
+        li.textContent = row.fruta;
+        const score = document.createElement('span');
+        score.className = 'score';
+        score.textContent = `${(row.puntaje_relativo * 100).toFixed(1)} %`;
+        li.append(score);
+        return li;
+      }));
+      state.textContent = `Primera opción: ${data.top5[0].fruta}.`;
+      state.textContent += ` Inferencia en esta CPU: ${data.inference_ms.toFixed(1)} ms (modelo ya cargado).`;
+    } catch (error) { state.textContent = error.message; }
+    finally { button.disabled = false; }
+  });
+  fetch('/api/summary').then(r => r.json()).then(report => {
+    const test = report.external_test || {};
+    document.getElementById('validation').textContent = test.status === 'evaluated'
+      ? `Prueba externa: ${test.images} fotos de ${test.families} frutas; acierto global ${(test.fruit_family_top1 * 100).toFixed(1)} % y promedio por fruta ${test.macro_fruit_family_top1 == null ? 'sin dato' : (test.macro_fruit_family_top1 * 100).toFixed(1) + ' %'}. Prestá atención a qué fotos se incluyeron.`
+      : 'Todavía no hay una prueba externa suficiente con fotos reales y ejemplares distintos. La precisión interna no demuestra robustez fuera de Fruits-360.';
+    document.getElementById('compute').textContent = report.training_gpu_pod_hours_approx != null
+      ? `Entrenamiento: ${report.training_gpu_pod_hours_approx} GPU-pod-horas aproximadas en ${report.all_trials?.length || 1} ensayo(s); pico de memoria del mejor modelo ${report.winner_peak_gpu_memory_gib} GiB. La inferencia de una foto corre en CPU y su tiempo aparece arriba. No son costos monetarios ni mediciones de utilización GPU.`
+      : 'Todavía no hay métricas de entrenamiento disponibles.';
+  }).catch(() => { document.getElementById('validation').textContent = 'No pude cargar el informe de evaluación.'; });
+</script>
+</body>
+</html>

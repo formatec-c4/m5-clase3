@@ -1,0 +1,7 @@
+FROM python:3.11-slim
+RUN python -m pip install --no-cache-dir torch==2.7.1 torchvision==0.22.1 --index-url https://download.pytorch.org/whl/cpu \
+ && python -m pip install --no-cache-dir boto3==1.40.31 Pillow==11.3.0
+WORKDIR /lab
+COPY train.py fruit_classes.py infer.py serve.py index.html /lab/
+EXPOSE 8080
+CMD ["python", "-u", "/lab/serve.py", "--model", "/mnt/models/best.pt", "--host", "0.0.0.0", "--port", "8080"]

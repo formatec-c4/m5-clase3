@@ -1,0 +1,40 @@
+{{- $_ := required "image es obligatorio" .Values.image -}}
+{{- $_ := required "s3Bucket es obligatorio" .Values.s3Bucket -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frutas-predictor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frutas-predictor
+  template:
+    metadata:
+      labels:
+        app: frutas-predictor
+    spec:
+      serviceAccountName: frutas-s3
+      nodeSelector:
+        node-role.formatec/admin: "true"
+      containers:
+        - name: predictor
+          image: {{ .Values.image | quote }}
+          imagePullPolicy: Always
+          env:
+            - name: S3_BUCKET
+              value: {{ .Values.s3Bucket | quote }}
+            - name: AWS_DEFAULT_REGION
+              value: {{ .Values.awsRegion | quote }}
+          ports:
+            - containerPort: 8080
+              name: http
+          startupProbe:
+            httpGet: {path: /healthz, port: http}
+            failureThreshold: 60
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+          resources:
+            requests: {cpu: 250m, memory: 1Gi}
+            limits: {cpu: "2", memory: 4Gi}

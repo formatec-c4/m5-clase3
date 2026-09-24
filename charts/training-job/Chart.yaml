@@ -1,0 +1,5 @@
+apiVersion: v2
+name: frutas-training-job
+description: Job de entrenamiento de frutas para la clase
+type: application
+version: 0.1.0

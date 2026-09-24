@@ -1,0 +1,16 @@
+**/.terraform/
+**/terraform.tfstate*
+**/tfplan
+*.tfvars
+*.tfvars.json
+.env
+.runtime.env
+.kubeconfig-m5-clase3
+runs/
+real-world-train/
+real-world-test/
+__pycache__/
+*.pyc
+fruits360.zip
+banana.jpg
+.DS_Store

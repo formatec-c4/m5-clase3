@@ -1,0 +1,67 @@
+{{- if not (has .Values.mode (list "smoke" "full")) -}}
+{{- fail "mode debe ser smoke o full" -}}
+{{- end -}}
+{{- $_ := required "image es obligatorio" .Values.image -}}
+{{- $_ := required "s3Bucket es obligatorio" .Values.s3Bucket -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ if eq .Values.mode "smoke" }}entrenar-frutas-smoke{{ else }}entrenar-frutas-pro{{ end }}
+spec:
+  completionMode: Indexed
+  completions: {{ if eq .Values.mode "smoke" }}1{{ else }}3{{ end }}
+  parallelism: 1
+  backoffLimitPerIndex: {{ if eq .Values.mode "smoke" }}1{{ else }}2{{ end }}
+  activeDeadlineSeconds: {{ if eq .Values.mode "smoke" }}3600{{ else }}21600{{ end }}
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      serviceAccountName: frutas-s3
+      restartPolicy: Never
+      nodeSelector:
+        karpenter.sh/nodepool: frutas-gpu
+      containers:
+        - name: entrenador
+          image: {{ .Values.image | quote }}
+          imagePullPolicy: Always
+          env:
+            - name: S3_BUCKET
+              value: {{ .Values.s3Bucket | quote }}
+            - name: AWS_DEFAULT_REGION
+              value: {{ .Values.awsRegion | quote }}
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            {{- if eq .Values.mode "smoke" }}
+            - name: ARTIFACT_PREFIX
+              value: {{ .Values.artifactPrefix | quote }}
+            - name: TRAIN_IMAGES_PER_VARIETY
+              value: "30"
+            - name: TEST_IMAGES_PER_VARIETY
+              value: "10"
+            - name: TRAIN_FINAL_EPOCH
+              value: "2"
+            {{- end }}
+          resources:
+            requests:
+              cpu: "3"
+              memory: 12Gi
+              nvidia.com/gpu: "1"
+              ephemeral-storage: 30Gi
+            limits:
+              cpu: "4"
+              memory: 15Gi
+              nvidia.com/gpu: "1"
+              ephemeral-storage: 70Gi
+          volumeMounts:
+            - name: scratch
+              mountPath: /scratch
+            - name: shm
+              mountPath: /dev/shm
+      volumes:
+        - name: scratch
+          emptyDir:
+            sizeLimit: 70Gi
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 2Gi

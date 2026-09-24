@@ -1,0 +1,10 @@
+replicas: 1
+nodeSelector:
+  node-role.formatec/admin: "true"
+controller:
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 2Gi

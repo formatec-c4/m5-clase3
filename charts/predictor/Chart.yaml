@@ -1,0 +1,4 @@
+apiVersion: v2
+name: predictor
+version: 0.1.0
+description: Predictor HTTP de frutas en CPU

@@ -1,0 +1,12 @@
+.env
+.runtime.env
+runs/
+real-world-train/
+real-world-test/
+__pycache__/
+*.pt
+*.zip
+terraform/
+.git/
+fruits360.zip
+banana.jpg

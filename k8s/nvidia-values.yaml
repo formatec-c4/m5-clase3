@@ -1,0 +1,10 @@
+nodeSelector:
+  karpenter.sh/nodepool: frutas-gpu
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: workload.formatec/type
+              operator: In
+              values: [gpu-training]
